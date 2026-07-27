@@ -2,60 +2,184 @@
 Official implementation of PathMIL, a path-aware dual-stream MIL framework for weakly supervised whole-slide image classification. PathMIL introduces Dynamic Pathway Modeling to capture continuous and directional morphological evidence, and fuses patch- and path-level representations with gated multi-scale positional encoding.
 PathMIL
 
-PathMIL: Path-aware Multiple Instance Learning for Weakly Supervised Whole-Slide Image Classification
+# PathMIL
 
-Official implementation of PathMIL, a path-aware dual-stream multiple instance learning framework that models continuous and directional morphological evidence in whole-slide images.
+<p align="center">
+  <strong>PathMIL: Path-aware Multiple Instance Learning for Weakly Supervised Whole-Slide Image Classification</strong>
+</p>
 
-Paper: Coming soon
-Code and pretrained models: To be released
+<p align="center">
+  Official implementation of PathMIL, a path-aware dual-stream multiple instance learning framework for weakly supervised whole-slide image classification.
+</p>
 
-<p align="center"> <img src="assets/pathmil_framework.png" width="95%" alt="Overview of the PathMIL framework"> </p>
+<p align="center">
+  <a href="#overview">Overview</a> •
+  <a href="#framework">Framework</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#data-preparation">Data Preparation</a> •
+  <a href="#training">Training</a> •
+  <a href="#evaluation">Evaluation</a> •
+  <a href="#visualization">Visualization</a> •
+  <a href="#citation">Citation</a>
+</p>
 
-📇 Overview
+---
 
-Multiple instance learning (MIL) enables whole-slide image (WSI) classification using only slide-level labels. Most existing methods represent a slide as an unordered collection of image patches and aggregate patch-level evidence directly for slide-level prediction. Although effective, this formulation provides limited modeling of the continuous and directional organization of diagnostically relevant morphology across neighboring tissue regions.
+## News
 
-PathMIL introduces an intermediate path-level representation between patch encoding and slide aggregation. Its core component, Dynamic Pathway Modeling (DPM), constructs short directed local pathways from individual seed patches. At each step, candidate neighboring patches are evaluated by combining local feature similarity, spatial bias, and global guidance. The selected pathway features are then aggregated into path-level embeddings through intra-path attention.
+- **Code and pretrained models will be released soon.**
+- **Paper link will be updated after publication.**
 
-PathMIL adopts a dual-stream design that integrates patch-level appearance with path-level morphological evidence. The fused instance representations are further refined by Gated Multi-scale Positional Encoding (G-PPEG) before gated-attention MIL pooling and slide-level classification. This design enables the model to capture local tissue continuity, directional morphological transitions, and hierarchical spatial regularities while retaining the discriminative information of individual patches.
+## Overview
 
-Experiments on four public benchmarks and one internal neuropathology cohort demonstrate consistent improvements across diverse WSI classification scenarios. Pathway visualization further reveals spatially coherent local trajectories that are broadly aligned with routine pathological diagnostic reasoning for the displayed tissue regions.
+Multiple instance learning enables whole-slide image classification using only slide-level annotations. Most existing MIL methods represent a whole-slide image as an unordered collection of patches and directly aggregate patch-level evidence for slide-level prediction. However, this formulation provides limited modeling of the continuous and directional organization of diagnostically relevant morphology across neighboring tissue regions.
 
-✨ Highlights
-Path-level evidence modeling: introduces an intermediate representation between patch features and slide-level prediction.
-Dynamic Pathway Modeling: learns short directed local pathways by integrating feature similarity, spatial relationships, and global guidance.
-Dual-stream representation: jointly models patch-level appearance and pathway-level morphological organization.
-Gated multi-scale positional encoding: adaptively captures local and hierarchical spatial regularities.
-Pathway-based visualization: complements conventional patch-level attention heatmaps with spatially coherent local trajectories.
-🧠 Framework
+PathMIL introduces an intermediate **path-level representation** between patch encoding and slide aggregation. Its core component, **Dynamic Pathway Modeling (DPM)**, constructs short directed local pathways from individual seed patches. At each step, neighboring candidates are evaluated by combining local feature similarity, spatial bias, and global guidance.
 
-PathMIL consists of four main stages:
+The resulting pathway features are aggregated into path-level embeddings and fused with patch-level representations. A **Gated Multi-scale Positional Encoding module (G-PPEG)** further captures local tissue continuity and hierarchical spatial regularities before slide-level MIL aggregation.
 
-Feature encoding
-A pretrained encoder extracts patch embeddings from tissue regions of a WSI.
-Dynamic Pathway Modeling
-DPM retrieves local candidate neighbors and recursively selects pathway nodes using a learned transition score composed of:
-local feature similarity;
-spatial bias;
-global guidance.
-Patch-path fusion with G-PPEG
-Patch-level and path-level embeddings are projected and fused. G-PPEG then injects gated multi-scale positional information into the fused instance representations.
-Slide-level aggregation
-Gated-attention MIL pooling aggregates the refined instance features for slide-level classification.
+PathMIL therefore models both:
 
-The learned pathways describe the model's local organization of morphological evidence. They should not be interpreted as literal biological progression routes or pathologists' reading sequences.
+- patch-level morphological appearance;
+- path-level directional and spatial organization.
 
-🗄️ Environment
+Experiments on four public benchmarks and one internal neuropathology cohort demonstrate consistent improvements across diverse whole-slide image classification tasks.
 
-We recommend creating a dedicated Conda environment:
+<p align="center">
+  <img src="assets/pathmil_framework.png" width="95%" alt="PathMIL framework">
+</p>
 
+> The framework figure will be added to `assets/pathmil_framework.png`.
+
+## Highlights
+
+- **Path-level evidence modeling**  
+  Introduces an intermediate representation between patch-level features and slide-level prediction.
+
+- **Dynamic Pathway Modeling**  
+  Constructs short directed local pathways by integrating local feature similarity, spatial relationships, and global guidance.
+
+- **Dual-stream representation learning**  
+  Jointly models patch-level appearance and path-level morphological organization.
+
+- **Gated multi-scale positional encoding**  
+  Adaptively captures tissue continuity and hierarchical spatial regularities.
+
+- **Pathway-based visualization**  
+  Complements conventional patch-level attention heatmaps with spatially coherent local trajectories.
+
+## Framework
+
+PathMIL contains four major stages.
+
+### 1. Patch Feature Encoding
+
+A pretrained feature encoder extracts patch embeddings from tissue regions in a whole-slide image:
+
+```text
+Patch features: [N, C]
+Coordinates:    [N, 2]
+```
+
+where:
+
+- `N` is the number of tissue patches;
+- `C` is the feature dimension.
+
+PathMIL is not restricted to a specific feature encoder. CNN-based, Transformer-based, and pathology foundation model-based encoders can be used.
+
+### 2. Dynamic Pathway Modeling
+
+For each seed patch, DPM retrieves local candidate neighbors and recursively selects the next pathway node.
+
+The transition score combines:
+
+- local feature similarity;
+- spatial bias;
+- global guidance.
+
+A short directed local pathway is constructed for each patch. Intra-path attention then aggregates the selected pathway features into a path-level representation.
+
+### 3. Patch-Path Fusion and G-PPEG
+
+Patch-level and path-level representations are projected into a shared feature space and fused.
+
+G-PPEG reshapes the fused instances into a pseudo-grid and applies multi-scale depthwise convolutions. A token-wise gate controls the contribution of positional information to each instance representation.
+
+### 4. Slide-level Aggregation
+
+Gated-attention MIL pooling aggregates the refined instance representations into a slide-level embedding for classification.
+
+> The learned pathways represent the model's local organization of morphological evidence. They should not be interpreted as literal biological progression routes or as pathologists' reading sequences.
+
+## Repository Structure
+
+The repository is organized as follows:
+
+```text
+PathMIL/
+├── assets/
+│   └── pathmil_framework.png
+├── configs/
+│   ├── camelyon16.yaml
+│   ├── tcga_lung.yaml
+│   ├── tcga_nsclc.yaml
+│   └── panda.yaml
+├── datasets/
+│   ├── dataset_generic.py
+│   └── dataset_utils.py
+├── models/
+│   ├── pathmil.py
+│   ├── dpm.py
+│   ├── gppeg.py
+│   └── attention.py
+├── scripts/
+│   ├── run_train.sh
+│   ├── run_eval.sh
+│   └── run_visualization.sh
+├── splits/
+├── train.py
+├── eval.py
+├── visualize_paths.py
+├── environment.yml
+├── requirements.txt
+├── LICENSE
+└── README.md
+```
+
+The exact filenames may be adjusted in the final release.
+
+## Installation
+
+### Clone the repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/PathMIL.git
+cd PathMIL
+```
+
+Replace `YOUR_USERNAME` with the GitHub account or organization that hosts the repository.
+
+### Create the environment
+
+We recommend using Conda:
+
+```bash
 conda env create -f environment.yml
 conda activate pathmil
+```
 
-The implementation is based on Python and PyTorch. The exact package versions used for the experiments will be provided in environment.yml.
+Alternatively, install the required packages with:
 
-Main dependencies include:
+```bash
+pip install -r requirements.txt
+```
 
+### Main dependencies
+
+The main dependencies include:
+
+```text
 Python
 PyTorch
 torchvision
@@ -65,18 +189,27 @@ NumPy
 pandas
 scikit-learn
 matplotlib
-🗃️ Data Preparation
+PyYAML
+tqdm
+```
 
-PathMIL performs MIL training on pre-extracted patch features and their spatial coordinates. A standard preprocessing pipeline contains the following steps:
+The exact package versions used in our experiments will be provided in `environment.yml`.
 
-segment tissue regions from each WSI;
-crop non-overlapping or partially overlapping image patches;
-extract patch features using a pretrained encoder;
-save the patch features and coordinates using the same slide identifier;
-prepare a CSV file containing slide identifiers and slide-level labels.
+## Data Preparation
 
-An example feature directory is shown below:
+PathMIL performs MIL training using pre-extracted patch features and their spatial coordinates.
 
+A standard preprocessing pipeline contains the following steps:
+
+1. Segment tissue regions from each whole-slide image.
+2. Crop image patches from tissue regions.
+3. Extract patch features using a pretrained encoder.
+4. Save patch features and spatial coordinates.
+5. Prepare slide-level labels and cross-validation splits.
+
+### Recommended directory structure
+
+```text
 DATA_ROOT/
 ├── pt_files/
 │   ├── slide_001.pt
@@ -86,169 +219,274 @@ DATA_ROOT/
 │   ├── slide_001.h5
 │   ├── slide_002.h5
 │   └── ...
-└── labels.csv
+├── labels.csv
+└── splits/
+    ├── splits_0.csv
+    ├── splits_1.csv
+    └── ...
+```
 
-Each slide should contain:
+Each slide should contain patch features and corresponding coordinates:
 
+```text
 features: [N, C]
 coords:   [N, 2]
+```
 
-where N is the number of tissue patches and C is the feature dimension. The coordinates must follow the same ordering as the patch features.
+The ordering of `coords` must be consistent with the ordering of `features`.
 
-A minimal label file may follow this format:
+### Label file
 
+A minimal label file can be organized as follows:
+
+```csv
 slide_id,label
 slide_001,0
 slide_002,1
+slide_003,0
+```
 
-The feature extractor is not restricted to a specific backbone. CNN-, Transformer-, and pathology foundation model-based encoders can be used as long as the extracted feature dimension is consistent with the model configuration.
+For multi-class tasks:
 
-🗂️ Repository Structure
+```csv
+slide_id,label
+slide_001,0
+slide_002,1
+slide_003,2
+```
 
-The released repository will follow a structure similar to:
+### Feature encoders
 
-PathMIL/
-├── assets/                 # Framework and visualization figures
-├── configs/                # Dataset-specific configuration files
-├── datasets/               # Dataset loaders and preprocessing utilities
-├── models/
-│   ├── pathmil.py          # Overall PathMIL architecture
-│   ├── dpm.py              # Dynamic Pathway Modeling
-│   ├── gppeg.py            # Gated multi-scale positional encoding
-│   └── attention.py        # Intra-path and MIL attention modules
-├── scripts/                # Training, evaluation, and visualization scripts
-├── splits/                 # Cross-validation split files
-├── train.py
-├── eval.py
-├── visualize_paths.py
-├── environment.yml
-└── README.md
+PathMIL can use features extracted by different pretrained encoders, including:
 
-The filenames may be adjusted in the final public release.
+- ImageNet-pretrained CNNs;
+- pathology-specific CNNs;
+- vision Transformers;
+- pathology foundation models.
 
-🚀 Training
+Please ensure that the feature dimension in the configuration file matches the dimension of the extracted features.
 
-The following command illustrates the expected training interface:
+## Configuration
 
+Dataset-specific settings are stored in YAML configuration files.
+
+An example configuration is shown below:
+
+```yaml
+dataset:
+  name: camelyon16
+  data_root: /path/to/CAMELYON16/features
+  label_csv: /path/to/CAMELYON16/labels.csv
+  split_dir: splits/camelyon16
+  num_classes: 2
+
+model:
+  input_dim: 1024
+  hidden_dim: 512
+  attention_dim: 256
+
+  path_depth: 3
+  num_neighbors: 16
+
+  alpha: 1.0
+  beta: 0.5
+  gamma: 0.5
+
+  dropout: 0.25
+  regularization_lambda: 0.01
+
+training:
+  epochs: 200
+  learning_rate: 0.0002
+  weight_decay: 0.00001
+  bag_weight: 0.7
+  seed: 1
+
+output:
+  save_dir: results/camelyon16
+```
+
+## Training
+
+Train PathMIL on one cross-validation fold:
+
+```bash
 python train.py \
   --config configs/camelyon16.yaml \
   --fold 0
+```
 
-A configuration file should specify the dataset paths, model parameters, optimization settings, and output directory. A representative PathMIL setting is:
+Run five-fold cross-validation:
 
-Parameter	Reference value
-Path depth	3
-Number of neighbors	16
-Local score weight alpha	1.0
-Spatial score weight beta	0.5
-Global score weight gamma	0.5
-DPM regularization coefficient	0.01
-Input feature dimension	1024
-Hidden dimension	512
-Attention dimension	256
-Learning rate	2e-4
-Weight decay	1e-5
-Dropout	0.25
-
-These values provide the reference configuration used in our experiments. Dataset-specific configuration files should be used to reproduce the reported results.
-
-For five-fold cross-validation:
-
+```bash
 for fold in 0 1 2 3 4
 do
   python train.py \
     --config configs/camelyon16.yaml \
     --fold ${fold}
 done
-🔍 Evaluation
+```
 
-Evaluate a trained checkpoint with:
+A representative experimental setting is shown below:
 
+| Parameter | Reference value |
+|---|---:|
+| Input feature dimension | 1024 |
+| Hidden dimension | 512 |
+| Attention dimension | 256 |
+| Path depth | 3 |
+| Number of neighbors | 16 |
+| Local score weight `alpha` | 1.0 |
+| Spatial score weight `beta` | 0.5 |
+| Global score weight `gamma` | 0.5 |
+| Regularization coefficient | 0.01 |
+| Learning rate | 2e-4 |
+| Weight decay | 1e-5 |
+| Dropout | 0.25 |
+
+These values provide a reference configuration. Dataset-specific settings should be used to reproduce the reported results.
+
+## Evaluation
+
+Evaluate a trained checkpoint using:
+
+```bash
 python eval.py \
   --config configs/camelyon16.yaml \
   --checkpoint /path/to/checkpoint.pt \
   --fold 0
+```
 
-The evaluation script reports slide-level classification metrics such as accuracy, AUC, and other task-specific measures defined in the corresponding configuration.
+The evaluation script reports slide-level classification metrics such as:
 
-🧭 Pathway Visualization
+- area under the ROC curve;
+- accuracy;
+- precision;
+- recall;
+- F1 score.
 
-PathMIL supports visualization of both patch-level attention and learned local pathways:
+The exact reported metrics may vary according to the task.
 
+## Visualization
+
+PathMIL supports visualization of patch-level attention and learned local pathways.
+
+```bash
 python visualize_paths.py \
   --config configs/camelyon16.yaml \
   --checkpoint /path/to/checkpoint.pt \
   --slide_id slide_001 \
   --output_dir results/visualization
+```
 
-The visualization module can be used to inspect representative pathway behaviors, including:
+The visualization module can be used to inspect pathway behaviors such as:
 
-coherent pathways within morphologically consistent regions;
-boundary-aware exploration between neighboring tissue patterns;
-local interactions across heterogeneous tissue regions.
+- coherent pathways within morphologically consistent regions;
+- boundary-aware exploration between neighboring tissue patterns;
+- local interactions across heterogeneous tissue regions.
 
-The displayed paths are model-derived relational structures and should be interpreted together with the original histology and patch-level attention maps.
+The learned pathways should be interpreted together with the original histology and patch-level attention maps.
 
-📊 Datasets
+## Datasets
 
-We evaluate PathMIL on four public WSI benchmarks and one internal neuropathology cohort:
+We evaluate PathMIL on four public datasets and one internal neuropathology cohort.
 
-Dataset	Diagnostic task	Availability
-CAMELYON16	Lymph-node metastasis classification	Public
-TCGA-Lung	LUAD versus LUSC subtype classification	Public
-TCGA-NSCLC	Pathological T-stage-related classification	Public
-PANDA	Prostate cancer ISUP grade prediction	Public
-Brain Bank	Aβ plaque micro-lesion pattern classification	Internal cohort
+| Dataset | Task | Availability |
+|---|---|---|
+| CAMELYON16 | Lymph-node metastasis classification | Public |
+| TCGA-Lung | LUAD versus LUSC classification | Public |
+| TCGA-NSCLC | Pathological T-stage-related classification | Public |
+| PANDA | Prostate cancer ISUP grade prediction | Public |
+| Brain Bank | Aβ plaque micro-lesion pattern classification | Internal |
 
-Please download the public datasets from their official sources and follow the corresponding licenses and data-use agreements. The internal Brain Bank cohort cannot be redistributed through this repository and remains subject to institutional ethics and data-governance requirements.
+Public datasets should be downloaded from their official sources. Users must follow the corresponding licenses and data-use agreements.
 
-Dataset splits and preprocessing instructions for the public benchmarks will be released with the code.
+The internal Brain Bank cohort cannot be redistributed through this repository because it remains subject to institutional ethics and data-governance requirements.
 
-📦 Pretrained Models
+## Pretrained Models
 
-Pretrained checkpoints and configuration files will be provided after the public release.
+Pretrained checkpoints and configuration files will be released after publication.
 
-Dataset	Configuration	Checkpoint
-CAMELYON16	Coming soon	Coming soon
-TCGA-Lung	Coming soon	Coming soon
-TCGA-NSCLC	Coming soon	Coming soon
-PANDA	Coming soon	Coming soon
-✅ Reproducibility
+| Dataset | Configuration | Checkpoint |
+|---|---|---|
+| CAMELYON16 | Coming soon | Coming soon |
+| TCGA-Lung | Coming soon | Coming soon |
+| TCGA-NSCLC | Coming soon | Coming soon |
+| PANDA | Coming soon | Coming soon |
 
-To facilitate reproducibility, the public release will include:
+## Results
 
-dataset-specific configuration files;
-five-fold split files for public datasets;
-preprocessing and feature-loading instructions;
-training and evaluation scripts;
-pretrained checkpoints where redistribution is permitted;
-pathway visualization utilities.
+The quantitative results reported in the paper will be added after publication.
 
-Because WSI experiments can be sensitive to feature extractors, data splits, and preprocessing settings, please ensure that the encoder, patch size, magnification, feature dimension, and split files match the target configuration.
+| Method | CAMELYON16 | TCGA-Lung | TCGA-NSCLC | PANDA | Brain Bank |
+|---|---:|---:|---:|---:|---:|
+| ABMIL | TBD | TBD | TBD | TBD | TBD |
+| CLAM | TBD | TBD | TBD | TBD | TBD |
+| TransMIL | TBD | TBD | TBD | TBD | TBD |
+| PathMIL | TBD | TBD | TBD | TBD | TBD |
 
-📍 Acknowledgements
+All results should be reproduced using the released splits, feature encoders, configuration files, and random seeds.
 
-We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work. Detailed acknowledgements and third-party code attributions will be added with the public code release.
+## Reproducibility
 
-Human brain tissue used in the study is provided by the National Human Brain Bank for Development and Function, Chinese Academy of Medical Sciences and Peking Union Medical College, with support from the relevant institutional brain banking and neuroscience resources. The use of the internal cohort follows the approved institutional ethics protocols described in the manuscript.
+The public release will include:
 
-📌 Citation
+- dataset-specific configuration files;
+- five-fold cross-validation splits for public datasets;
+- feature-loading and preprocessing instructions;
+- training and evaluation scripts;
+- pretrained checkpoints where redistribution is permitted;
+- patch attention visualization;
+- pathway visualization utilities.
+
+Whole-slide image experiments can be sensitive to:
+
+- the feature encoder;
+- patch magnification;
+- patch size;
+- tissue segmentation;
+- train-test splits;
+- random seeds;
+- feature normalization.
+
+Please ensure that these settings match the corresponding configuration when reproducing the reported results.
+
+## Acknowledgements
+
+We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work.
+
+Human brain tissue used in this study is provided by the National Human Brain Bank for Development and Function, Chinese Academy of Medical Sciences and Peking Union Medical College, with support from the relevant brain banking and neuroscience resources.
+
+The use of the internal cohort follows the institutional ethics approvals and data-governance requirements described in the manuscript.
+
+Detailed third-party code acknowledgements will be provided with the public release.
+
+## Citation
 
 If you find PathMIL useful in your research, please cite our paper:
 
+```bibtex
 @article{pathmil2026,
   title   = {PathMIL: Path-aware Multiple Instance Learning for Weakly Supervised Whole-Slide Image Classification},
-  author  = {Author list to be updated},
-  journal = {Manuscript under review},
+  author  = {Author List},
+  journal = {Medical Image Analysis},
   year    = {2026}
 }
+```
 
-The final BibTeX entry will be updated after publication.
+The final title, author list, journal information, DOI, and BibTeX entry will be updated after publication.
 
-📄 License
+## License
 
-Please refer to the LICENSE file for the terms of use. Dataset access and pretrained feature redistribution remain governed by the licenses of the original data providers and feature encoders.
+This repository is released under the license specified in the [LICENSE](LICENSE) file.
 
+The use of external datasets, pretrained encoders, and extracted features remains subject to the licenses and terms of their original providers.
+
+## Contact
+
+For questions, suggestions, or bug reports, please open an issue in this repository.
+
+Corresponding author information will be added after the repository is finalized.
 📮 Contact
 
 For questions, suggestions, or issues, please open a GitHub issue. Contact information for the corresponding authors will be added after the repository is finalized.
