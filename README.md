@@ -23,7 +23,6 @@
 
 ## News
 
-- **Code and pretrained models will be released soon.**
 - **Paper link will be updated after publication.**
 
 ## Overview
