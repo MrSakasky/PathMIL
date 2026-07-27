@@ -44,7 +44,6 @@ Experiments on four public benchmarks and one internal neuropathology cohort dem
   <img src="assets/framework.png" width="95%" alt="PathMIL framework">
 </p>
 
-> The framework figure will be added to `assets/pathmil_framework.png`.
 
 ## Highlights
 
