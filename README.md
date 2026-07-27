@@ -1,8 +1,4 @@
 # PathMIL
-Official implementation of PathMIL, a path-aware dual-stream MIL framework for weakly supervised whole-slide image classification. PathMIL introduces Dynamic Pathway Modeling to capture continuous and directional morphological evidence, and fuses patch- and path-level representations with gated multi-scale positional encoding.
-PathMIL
-
-# PathMIL
 
 <p align="center">
   <strong>PathMIL: Path-aware Multiple Instance Learning for Weakly Supervised Whole-Slide Image Classification</strong>
@@ -316,36 +312,6 @@ python train.py \
   --fold 0
 ```
 
-Run five-fold cross-validation:
-
-```bash
-for fold in 0 1 2 3 4
-do
-  python train.py \
-    --config configs/camelyon16.yaml \
-    --fold ${fold}
-done
-```
-
-A representative experimental setting is shown below:
-
-| Parameter | Reference value |
-|---|---:|
-| Input feature dimension | 1024 |
-| Hidden dimension | 512 |
-| Attention dimension | 256 |
-| Path depth | 3 |
-| Number of neighbors | 16 |
-| Local score weight `alpha` | 1.0 |
-| Spatial score weight `beta` | 0.5 |
-| Global score weight `gamma` | 0.5 |
-| Regularization coefficient | 0.01 |
-| Learning rate | 2e-4 |
-| Weight decay | 1e-5 |
-| Dropout | 0.25 |
-
-These values provide a reference configuration. Dataset-specific settings should be used to reproduce the reported results.
-
 ## Evaluation
 
 Evaluate a trained checkpoint using:
@@ -414,42 +380,8 @@ Pretrained checkpoints and configuration files will be released after publicatio
 | TCGA-NSCLC | Coming soon | Coming soon |
 | PANDA | Coming soon | Coming soon |
 
-## Results
 
-The quantitative results reported in the paper will be added after publication.
 
-| Method | CAMELYON16 | TCGA-Lung | TCGA-NSCLC | PANDA | Brain Bank |
-|---|---:|---:|---:|---:|---:|
-| ABMIL | TBD | TBD | TBD | TBD | TBD |
-| CLAM | TBD | TBD | TBD | TBD | TBD |
-| TransMIL | TBD | TBD | TBD | TBD | TBD |
-| PathMIL | TBD | TBD | TBD | TBD | TBD |
-
-All results should be reproduced using the released splits, feature encoders, configuration files, and random seeds.
-
-## Reproducibility
-
-The public release will include:
-
-- dataset-specific configuration files;
-- five-fold cross-validation splits for public datasets;
-- feature-loading and preprocessing instructions;
-- training and evaluation scripts;
-- pretrained checkpoints where redistribution is permitted;
-- patch attention visualization;
-- pathway visualization utilities.
-
-Whole-slide image experiments can be sensitive to:
-
-- the feature encoder;
-- patch magnification;
-- patch size;
-- tissue segmentation;
-- train-test splits;
-- random seeds;
-- feature normalization.
-
-Please ensure that these settings match the corresponding configuration when reproducing the reported results.
 
 ## Acknowledgements
 
@@ -461,32 +393,9 @@ The use of the internal cohort follows the institutional ethics approvals and da
 
 Detailed third-party code acknowledgements will be provided with the public release.
 
-## Citation
 
-If you find PathMIL useful in your research, please cite our paper:
 
-```bibtex
-@article{pathmil2026,
-  title   = {PathMIL: Path-aware Multiple Instance Learning for Weakly Supervised Whole-Slide Image Classification},
-  author  = {Author List},
-  journal = {Medical Image Analysis},
-  year    = {2026}
-}
-```
-
-The final title, author list, journal information, DOI, and BibTeX entry will be updated after publication.
-
-## License
-
-This repository is released under the license specified in the [LICENSE](LICENSE) file.
-
-The use of external datasets, pretrained encoders, and extracted features remains subject to the licenses and terms of their original providers.
 
 ## Contact
-
 For questions, suggestions, or bug reports, please open an issue in this repository.
 
-Corresponding author information will be added after the repository is finalized.
-📮 Contact
-
-For questions, suggestions, or issues, please open a GitHub issue. Contact information for the corresponding authors will be added after the repository is finalized.
