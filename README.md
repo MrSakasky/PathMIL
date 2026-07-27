@@ -42,26 +42,26 @@ PathMIL therefore models both:
 Experiments on four public benchmarks and one internal neuropathology cohort demonstrate consistent improvements across diverse whole-slide image classification tasks.
 
 <p align="center">
-  <img src="assets/pathmil_framework.png" width="95%" alt="PathMIL framework">
+  <img src="assets/framework.png" width="95%" alt="PathMIL framework">
 </p>
 
 > The framework figure will be added to `assets/pathmil_framework.png`.
 
 ## Highlights
 
-- **Path-level evidence modeling**  
+- **Path-level Evidence Modeling**  
   Introduces an intermediate representation between patch-level features and slide-level prediction.
 
 - **Dynamic Pathway Modeling**  
   Constructs short directed local pathways by integrating local feature similarity, spatial relationships, and global guidance.
 
-- **Dual-stream representation learning**  
+- **Dual-stream Representation Learning**  
   Jointly models patch-level appearance and path-level morphological organization.
 
-- **Gated multi-scale positional encoding**  
+- **Gated Multi-scale Positional Encoding**  
   Adaptively captures tissue continuity and hierarchical spatial regularities.
 
-- **Pathway-based visualization**  
+- **Pathway-based Visualization**  
   Complements conventional patch-level attention heatmaps with spatially coherent local trajectories.
 
 ## Framework
@@ -150,11 +150,9 @@ The exact filenames may be adjusted in the final release.
 ### Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/PathMIL.git
+git clone https://github.com/MrSakasky/PathMIL.git
 cd PathMIL
 ```
-
-Replace `YOUR_USERNAME` with the GitHub account or organization that hosts the repository.
 
 ### Create the environment
 
@@ -304,7 +302,7 @@ output:
 
 ## Training
 
-Train PathMIL on one cross-validation fold:
+Train PathMIL on one fold:
 
 ```bash
 python train.py \
@@ -369,30 +367,15 @@ Public datasets should be downloaded from their official sources. Users must fol
 
 The internal Brain Bank cohort cannot be redistributed through this repository because it remains subject to institutional ethics and data-governance requirements.
 
-## Pretrained Models
-
-Pretrained checkpoints and configuration files will be released after publication.
-
-| Dataset | Configuration | Checkpoint |
-|---|---|---|
-| CAMELYON16 | Coming soon | Coming soon |
-| TCGA-Lung | Coming soon | Coming soon |
-| TCGA-NSCLC | Coming soon | Coming soon |
-| PANDA | Coming soon | Coming soon |
-
-
 
 
 ## Acknowledgements
 
-We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work.
+We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work.[CLAM](https://github.com/mahmoodlab/CLAM)
 
 Human brain tissue used in this study is provided by the National Human Brain Bank for Development and Function, Chinese Academy of Medical Sciences and Peking Union Medical College, with support from the relevant brain banking and neuroscience resources.
 
 The use of the internal cohort follows the institutional ethics approvals and data-governance requirements described in the manuscript.
-
-Detailed third-party code acknowledgements will be provided with the public release.
-
 
 
 
