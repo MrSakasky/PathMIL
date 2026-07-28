@@ -1,0 +1,59 @@
+experiment:
+  exp_code: pathmil_camelyon16
+  results_dir: results
+  seed: 1
+  log_data: true
+
+data:
+  task: task_1_tumor_vs_normal
+  data_root_dir: Extracted_feature
+  csv_path: dataset_csv/train_camelyon16_all.csv
+  feature_dir: 'G:\clam_features\Extracted_feature_camelyon16_resnet50_trunc_level0_patch256\tumor_vs_normal_camelyon16_level0_patch256_features_resnet50'
+  label_dict:
+    normal_tissue: 0
+    tumor_tissue: 1
+  patient_strat: false
+  ignore: []
+  label_col: label
+
+splits:
+  k: 5
+  k_start: -1
+  k_end: -1
+  split_dir: null
+  label_frac: 1.0
+
+training:
+  max_epochs: 200
+  lr: 0.0002
+  reg: 0.00001
+  opt: adam
+  classification_loss: ce
+  weighted_sample: true
+  testing: false
+  early_stopping: false
+  early_stopping_patience: 30
+  early_stopping_min_epoch: 120
+  print_every: 20
+
+model:
+  embed_dim: 1024
+  hidden_dim: 512
+  attention_dim: 256
+  drop_out: 0.25
+
+pathmil:
+  instance_supervision: true
+  instance_loss: svm
+  include_negative_instances: false
+  slide_loss_weight: 0.7
+  instance_sample_count: 8
+  projection_reg_weight: 0.00001
+  path_depth: 2
+  path_attention_dim: 256
+  path_spatial_dim: 32
+  path_neighbor_count: 8
+  path_temperature: 1.0
+  path_local_weight: 1.0
+  path_spatial_weight: 0.25
+  path_global_weight: 0.5
