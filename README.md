@@ -62,296 +62,439 @@ Experiments on four public benchmarks and one internal neuropathology cohort dem
 - **Pathway-based Visualization**  
   Complements conventional patch-level attention heatmaps with spatially coherent local trajectories.
 
-## Framework
-
-PathMIL contains four major stages.
-
-### 1. Patch Feature Encoding
-
-A pretrained feature encoder extracts patch embeddings from tissue regions in a whole-slide image:
-
-```text
-Patch features: [N, C]
-Coordinates:    [N, 2]
-```
-
-where:
-
-- `N` is the number of tissue patches;
-- `C` is the feature dimension.
-
-PathMIL is not restricted to a specific feature encoder. CNN-based, Transformer-based, and pathology foundation model-based encoders can be used.
-
-### 2. Dynamic Pathway Modeling
-
-For each seed patch, DPM retrieves local candidate neighbors and recursively selects the next pathway node.
-
-The transition score combines:
-
-- local feature similarity;
-- spatial bias;
-- global guidance.
-
-A short directed local pathway is constructed for each patch. Intra-path attention then aggregates the selected pathway features into a path-level representation.
-
-### 3. Patch-Path Fusion and G-PPEG
-
-Patch-level and path-level representations are projected into a shared feature space and fused.
-
-G-PPEG reshapes the fused instances into a pseudo-grid and applies multi-scale depthwise convolutions. A token-wise gate controls the contribution of positional information to each instance representation.
-
-### 4. Slide-level Aggregation
-
-Gated-attention MIL pooling aggregates the refined instance representations into a slide-level embedding for classification.
-
-> The learned pathways represent the model's local organization of morphological evidence. They should not be interpreted as literal biological progression routes or as pathologists' reading sequences.
-
-## Repository Structure
-
-The repository is organized as follows:
-
-```text
-PathMIL/
-├── assets/
-│   └── pathmil_framework.png
-├── configs/
-│   ├── camelyon16.yaml
-│   ├── tcga_lung.yaml
-│   ├── tcga_nsclc.yaml
-│   └── panda.yaml
-├── datasets/
-│   ├── dataset_generic.py
-│   └── dataset_utils.py
-├── models/
-│   ├── pathmil.py
-│   ├── dpm.py
-│   ├── gppeg.py
-│   └── attention.py
-├── scripts/
-│   ├── run_train.sh
-│   ├── run_eval.sh
-│   └── run_visualization.sh
-├── splits/
-├── train.py
-├── eval.py
-├── visualize_paths.py
-├── environment.yml
-├── requirements.txt
-├── LICENSE
-└── README.md
-```
-
-The exact filenames may be adjusted in the final release.
-
 ## Installation
 
-### Clone the repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/MrSakasky/PathMIL.git
 cd PathMIL
 ```
 
-### Create the environment
-
-We recommend using Conda:
+### 2. Create the Conda environment
 
 ```bash
-conda env create -f environment.yml
+conda env create -f env.yml
 conda activate pathmil
 ```
 
-Alternatively, install the required packages with:
+The environment uses Python 3.10 and includes PyTorch, timm, OpenSlide, h5py, pandas, scikit-learn, PyYAML, TensorBoard, and the remaining runtime dependencies.
 
-```bash
-pip install -r requirements.txt
+On Windows, if OpenSlide is installed outside the Conda environment and its DLLs cannot be found, set `OPENSLIDE_PATH` before running WSI preprocessing:
+
+```powershell
+$env:OPENSLIDE_PATH = "C:\path\to\openslide\bin"
 ```
-
-### Main dependencies
-
-The main dependencies include:
-
-```text
-Python
-PyTorch
-torchvision
-OpenSlide
-h5py
-NumPy
-pandas
-scikit-learn
-matplotlib
-PyYAML
-tqdm
-```
-
-The exact package versions used in our experiments will be provided in `environment.yml`.
 
 ## Data Preparation
 
-PathMIL performs MIL training using pre-extracted patch features and their spatial coordinates.
-
-A standard preprocessing pipeline contains the following steps:
-
-1. Segment tissue regions from each whole-slide image.
-2. Crop image patches from tissue regions.
-3. Extract patch features using a pretrained encoder.
-4. Save patch features and spatial coordinates.
-5. Prepare slide-level labels and cross-validation splits.
-
-### Recommended directory structure
+The complete pipeline is:
 
 ```text
-DATA_ROOT/
-├── pt_files/
-│   ├── slide_001.pt
-│   ├── slide_002.pt
+WSI files
+  └── create_patches.py
+        └── coordinate or image HDF5 bags
+              └── extract_features.py
+                    ├── h5_files/<slide_id>.h5
+                    └── pt_files/<slide_id>.pt
+                          └── PathMIL training
+```
+
+The coordinate pipeline is recommended because it stores patch coordinates instead of materializing every patch image.
+
+### Dataset CSV
+
+The training CSV must contain `case_id`, `slide_id`, and the configured label column:
+
+```csv
+case_id,slide_id,label
+patient_001,slide_001,normal_tissue
+patient_002,slide_002,tumor_tissue
+patient_003,slide_003,normal_tissue
+```
+
+Important:
+
+- `slide_id` should normally be the filename stem without the WSI extension.
+- `case_id` may equal `slide_id` when there is one slide per patient.
+- label strings must exactly match the keys in `data.label_dict`.
+- multiple slides may share one `case_id`.
+- set `data.patient_strat: true` to create patient-stratified splits.
+
+### Option A: coordinate pipeline (recommended)
+
+#### 1. Segment slides and create coordinate bags
+
+```bash
+python create_patches.py \
+  --source data/slides \
+  --save-dir data/patches_camelyon16 \
+  --pipeline coordinates \
+  --patch-size 256 \
+  --step-size 256 \
+  --patch-level 0 \
+  --stitch
+```
+
+This creates:
+
+```text
+data/patches_camelyon16/
+├── patches/
+│   ├── slide_001.h5
 │   └── ...
+├── masks/
+├── stitches/
+└── process_list_autogen.csv
+```
+
+The coordinate HDF5 bags store `coords` together with the patch level and patch size metadata.
+
+#### 2. Extract patch features
+
+```bash
+python extract_features.py \
+  --csv-path dataset_csv/train_camelyon16_all.csv \
+  --data-h5-dir data/patches_camelyon16 \
+  --data-slide-dir data/slides \
+  --feature-dir features/camelyon16_resnet50 \
+  --pipeline coordinates \
+  --slide-ext .svs \
+  --model-name resnet50_trunc \
+  --batch-size 128
+```
+
+The extractor reads each patch directly from its WSI. By default it uses the patch level and patch size stored in the coordinate HDF5 file. They can be overridden when necessary:
+
+```bash
+python extract_features.py \
+  --csv-path dataset_csv/train_camelyon16_all.csv \
+  --data-h5-dir data/patches_camelyon16 \
+  --data-slide-dir data/slides \
+  --feature-dir features/camelyon16_resnet50 \
+  --pipeline coordinates \
+  --patch-level 1 \
+  --read-patch-size 256
+```
+
+### Option B: materialized image-bag pipeline
+
+This pipeline stores patch pixels inside the HDF5 bags, so feature extraction no longer requires access to the original WSI files.
+
+```bash
+python create_patches.py \
+  --source data/slides \
+  --save-dir data/image_bags_camelyon16 \
+  --pipeline images \
+  --patch-size 256 \
+  --step-size 256 \
+  --patch-level 0
+```
+
+```bash
+python extract_features.py \
+  --csv-path dataset_csv/train_camelyon16_all.csv \
+  --data-h5-dir data/image_bags_camelyon16 \
+  --feature-dir features/camelyon16_resnet50 \
+  --pipeline images \
+  --model-name resnet50_trunc
+```
+
+### Extracted feature structure
+
+Feature extraction creates:
+
+```text
+features/camelyon16_resnet50/
 ├── h5_files/
 │   ├── slide_001.h5
 │   ├── slide_002.h5
 │   └── ...
-├── labels.csv
-└── splits/
-    ├── splits_0.csv
-    ├── splits_1.csv
+└── pt_files/
+    ├── slide_001.pt
+    ├── slide_002.pt
     └── ...
 ```
 
-Each slide should contain patch features and corresponding coordinates:
+Each feature HDF5 file contains:
 
 ```text
 features: [N, C]
 coords:   [N, 2]
 ```
 
-The ordering of `coords` must be consistent with the ordering of `features`.
+The feature and coordinate order must match. PathMIL training uses the HDF5 files because pathway construction requires both arrays.
 
-### Label file
+### Supported feature encoders
 
-A minimal label file can be organized as follows:
+`extract_features.py` currently supports:
 
-```csv
-slide_id,label
-slide_001,0
-slide_002,1
-slide_003,0
+| Encoder name | Checkpoint requirement |
+|---|---|
+| `resnet50_trunc` | Uses timm ImageNet-pretrained weights |
+| `resnet50_brain` | Requires `--encoder-checkpoint` |
+| `resnet50_brain2` | Requires `--encoder-checkpoint` |
+| `uni_v1` | Requires `--encoder-checkpoint` or `UNI_CKPT_PATH` |
+| `conch_v1` | Requires the CONCH package and `--encoder-checkpoint` or `CONCH_CKPT_PATH` |
+
+Example:
+
+```bash
+python extract_features.py \
+  --csv-path dataset_csv/train_camelyon16_all.csv \
+  --data-h5-dir data/patches_camelyon16 \
+  --data-slide-dir data/slides \
+  --feature-dir features/camelyon16_uni \
+  --pipeline coordinates \
+  --model-name uni_v1 \
+  --encoder-checkpoint checkpoints/uni.bin
 ```
 
-For multi-class tasks:
+Always set `model.embed_dim` in the training YAML to the dimension produced by the selected encoder. The default truncated ResNet-50 configuration produces 1024-dimensional features.
 
-```csv
-slide_id,label
-slide_001,0
-slide_002,1
-slide_003,2
+### Reusable patching presets
+
+Create a segmentation and patching preset:
+
+```bash
+python build_preset.py --preset-name camelyon16
 ```
 
-### Feature encoders
+Use it during patch creation:
 
-PathMIL can use features extracted by different pretrained encoders, including:
+```bash
+python create_patches.py \
+  --source data/slides \
+  --save-dir data/patches_camelyon16 \
+  --pipeline coordinates \
+  --preset presets/camelyon16.csv
+```
 
-- ImageNet-pretrained CNNs;
-- pathology-specific CNNs;
-- vision Transformers;
-- pathology foundation models.
+### Path handling
 
-Please ensure that the feature dimension in the configuration file matches the dimension of the extracted features.
+- Relative `csv_path`, `data_root_dir`, and `results_dir` values are resolved from the project root.
+- A relative `feature_dir` is joined to `data_root_dir`.
+- An absolute `feature_dir` is used directly.
+- When `split_dir` is `null`, it resolves to `splits/<task>_<label_fraction_percent>`.
+- With `k_start: -1` and `k_end: -1`, all folds are trained.
 
-## Configuration
-
-Dataset-specific settings are stored in YAML configuration files.
-
-An example configuration is shown below:
+For Windows paths, use YAML single quotes and do not use Python's `r"..."` syntax:
 
 ```yaml
-dataset:
-  name: camelyon16
-  data_root: /path/to/CAMELYON16/features
-  label_csv: /path/to/CAMELYON16/labels.csv
-  split_dir: splits/camelyon16
-  num_classes: 2
+data:
+  feature_dir: 'G:\path\to\features\camelyon16_resnet50'
+```
 
-model:
-  input_dim: 1024
-  hidden_dim: 512
-  attention_dim: 256
+### Validate the effective configuration
 
-  path_depth: 3
-  num_neighbors: 16
+Print the fully merged configuration without starting training:
 
-  alpha: 1.0
-  beta: 0.5
-  gamma: 0.5
+```bash
+python main.py --config configs/train_camelyon16.yaml --print-config
+```
 
-  dropout: 0.25
-  regularization_lambda: 0.01
+Configuration precedence is:
 
-training:
-  epochs: 200
-  learning_rate: 0.0002
-  weight_decay: 0.00001
-  bag_weight: 0.7
-  seed: 1
+```text
+code defaults < YAML values < command-line overrides
+```
 
-output:
-  save_dir: results/camelyon16
+## Cross-Validation Splits
+
+Create stratified cross-validation split files from the training YAML:
+
+```bash
+python create_splits.py \
+  --config configs/train_camelyon16.yaml \
+  --val-frac 0.2 \
+  --test-frac 0.1
+```
+
+With the example configuration, the files are written to:
+
+```text
+splits/task_1_tumor_vs_normal_100/
+├── splits_0.csv
+├── splits_0_bool.csv
+├── splits_0_descriptor.csv
+├── ...
+└── splits_4_descriptor.csv
+```
+
+Each `splits_<fold>.csv` contains `train`, `val`, and `test` columns. When `patient_strat: true`, splitting is performed at the `case_id` level so slides belonging to the same patient stay together.
+
+To use an explicit destination:
+
+```bash
+python create_splits.py \
+  --config configs/train_camelyon16.yaml \
+  --output-dir splits/camelyon16_custom
+```
+
+Then set:
+
+```yaml
+splits:
+  split_dir: splits/camelyon16_custom
 ```
 
 ## Training
 
-Train PathMIL on one fold:
+### Train all configured folds
 
 ```bash
-python train.py \
-  --config configs/camelyon16.yaml \
-  --fold 0
+python main.py --config configs/train_camelyon16.yaml
 ```
+
+If `--config` is omitted, `configs/train_camelyon16.yaml` is used.
+
+### Train one fold
+
+`k_end` is exclusive, so the following command trains fold 0 only:
+
+```bash
+python main.py \
+  --config configs/train_camelyon16.yaml \
+  --k-start 0 \
+  --k-end 1
+```
+
+### Override common settings
+
+```bash
+python main.py \
+  --config configs/train_camelyon16.yaml \
+  --exp-code pathmil_camelyon16_seed2 \
+  --seed 2 \
+  --lr 0.0001 \
+  --max-epochs 100
+```
+
+Other available overrides include:
+
+```text
+--data-root-dir
+--csv-path
+--feature-dir
+--results-dir
+--split-dir
+--projection-reg-weight
+--instance-supervision
+--no-instance-supervision
+```
+
+Run `python main.py --help` for the complete command-line interface.
+
+### Training outputs
+
+For:
+
+```yaml
+experiment:
+  exp_code: pathmil_camelyon16
+  results_dir: results
+  seed: 1
+```
+
+outputs are written to:
+
+```text
+results/pathmil_camelyon16_s1/
+├── config_effective.yaml
+├── experiment_pathmil_camelyon16.txt
+├── s_0_checkpoint.pt
+├── split_0_results.pkl
+├── splits_0.csv
+├── summary.csv
+└── tensorboard/
+    └── fold_0/
+        └── events.out.tfevents.*
+```
+
+`summary.csv` reports validation and test AUC and accuracy for every completed fold. A partial fold range produces `summary_partial_<start>_<end>.csv`.
+
+### TensorBoard
+
+TensorBoard logging is enabled with:
+
+```yaml
+experiment:
+  log_data: true
+```
+
+The logs contain training and validation losses, instance loss, projection regularization, accuracy, error, AUC, class-wise accuracy, learning rate, gradient norm, epoch duration, final evaluation metrics, model parameter counts, the runtime device, and the effective YAML configuration.
+
+Start TensorBoard with:
+
+```bash
+tensorboard --logdir results/pathmil_camelyon16_s1/tensorboard
+```
+
+Then open <http://localhost:6006>.
 
 ## Evaluation
 
-Evaluate a trained checkpoint using:
+Evaluate the test split for every configured fold:
 
 ```bash
 python eval.py \
-  --config configs/camelyon16.yaml \
-  --checkpoint /path/to/checkpoint.pt \
+  --config configs/train_camelyon16.yaml \
+  --checkpoint-dir results/pathmil_camelyon16_s1 \
+  --split test
+```
+
+The checkpoint directory is inferred from `exp_code`, `results_dir`, and `seed` when `--checkpoint-dir` is omitted:
+
+```bash
+python eval.py --config configs/train_camelyon16.yaml --split test
+```
+
+Evaluate one fold:
+
+```bash
+python eval.py \
+  --config configs/train_camelyon16.yaml \
+  --split test \
   --fold 0
 ```
 
-The evaluation script reports slide-level classification metrics such as:
-
-- area under the ROC curve;
-- accuracy;
-- precision;
-- recall;
-- F1 score.
-
-The exact reported metrics may vary according to the task.
-
-## Visualization
-
-PathMIL supports visualization of patch-level attention and learned local pathways.
+`--fold` may be repeated to evaluate selected folds:
 
 ```bash
-python visualize_paths.py \
-  --config configs/camelyon16.yaml \
-  --checkpoint /path/to/checkpoint.pt \
-  --slide_id slide_001 \
-  --output_dir results/visualization
+python eval.py \
+  --config configs/train_camelyon16.yaml \
+  --fold 0 \
+  --fold 2 \
+  --fold 4
 ```
 
-The visualization module can be used to inspect pathway behaviors such as:
+Available split choices are `train`, `validation`, `test`, and `all`.
 
-- coherent pathways within morphologically consistent regions;
-- boundary-aware exploration between neighboring tissue patterns;
-- local interactions across heterogeneous tissue regions.
+By default, predictions and summaries are saved under:
 
-The learned pathways should be interpreted together with the original histology and patch-level attention maps.
+```text
+eval_results/pathmil_camelyon16_s1/
+├── fold_0.csv
+├── ...
+└── summary.csv
+```
+
+Each fold CSV contains slide IDs, labels, and class probabilities; the predicted class is the probability argmax. The summary reports fold-level AUC and accuracy.
+
+
+## Testing
+
+Run the test suite from the repository root:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The tests cover configuration loading, data contracts, training/evaluation integration, device-safe losses, visited-node masking, straight-through gradients, and pathway boundary handling.
 
 ## Datasets
 
-We evaluate PathMIL on four public datasets and one internal neuropathology cohort.
+PathMIL was evaluated on four public datasets and one internal neuropathology cohort.
 
 | Dataset | Task | Availability |
 |---|---|---|
@@ -361,22 +504,22 @@ We evaluate PathMIL on four public datasets and one internal neuropathology coho
 | PANDA | Prostate cancer ISUP grade prediction | Public |
 | Brain Bank | Aβ plaque micro-lesion pattern classification | Internal |
 
-Public datasets should be downloaded from their official sources. Users must follow the corresponding licenses and data-use agreements.
+Public datasets must be downloaded from their official sources and used under their respective licenses and data-use agreements. The internal Brain Bank cohort cannot be redistributed through this repository because it is subject to institutional ethics and data-governance requirements.
 
-The internal Brain Bank cohort cannot be redistributed through this repository because it remains subject to institutional ethics and data-governance requirements.
+## Citation
 
-
+Citation information will be added after publication.
 
 ## Acknowledgements
 
-We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work.[CLAM](https://github.com/mahmoodlab/CLAM)
+We thank the developers of the open-source computational pathology and multiple instance learning projects that support this work, including [CLAM](https://github.com/mahmoodlab/CLAM).
 
-Human brain tissue used in this study is provided by the National Human Brain Bank for Development and Function, Chinese Academy of Medical Sciences and Peking Union Medical College, with support from the relevant brain banking and neuroscience resources.
+Human brain tissue used in this study was provided by the National Human Brain Bank for Development and Function, Chinese Academy of Medical Sciences and Peking Union Medical College, with support from the relevant brain banking and neuroscience resources.
 
 The use of the internal cohort follows the institutional ethics approvals and data-governance requirements described in the manuscript.
 
 
-
 ## Contact
+
 For questions, suggestions, or bug reports, please open an issue in this repository.
 
