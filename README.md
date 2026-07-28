@@ -232,8 +232,6 @@ The feature and coordinate order must match. PathMIL training uses the HDF5 file
 | Encoder name | Checkpoint requirement |
 |---|---|
 | `resnet50_trunc` | Uses timm ImageNet-pretrained weights |
-| `resnet50_brain` | Requires `--encoder-checkpoint` |
-| `resnet50_brain2` | Requires `--encoder-checkpoint` |
 | `uni_v1` | Requires `--encoder-checkpoint` or `UNI_CKPT_PATH` |
 | `conch_v1` | Requires the CONCH package and `--encoder-checkpoint` or `CONCH_CKPT_PATH` |
 
